@@ -42,7 +42,7 @@ public class TestArrayHashMapPersistence
     @Test
     public void testInvariantsWithPersistence() throws Exception
     {
-        File storeDir = new File( "bar" );
+        File storeDir = new File( "target/bar" );
         storeDir.mkdir();
         ArrayHashMapOptionFactory optionFactory = new ArrayHashMapOptionFactory(
                 storeDir );

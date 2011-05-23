@@ -7,11 +7,18 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Implements a caching strategy that evicts the least frequently
+ * used items.
+ *
+ * @param <K>
+ */
 public class TopK<K> implements ReplacementStrategy<K> {
 
 	private final Map<K, TopKEntry<K>> keyToCount;
 	private final List<TopKEntry<K>> countOrder;
 
+	@SuppressWarnings("rawtypes")
 	private final static TopKEntryComparator Comparator = new TopKEntryComparator();
 
 	public TopK()
@@ -38,11 +45,13 @@ public class TopK<K> implements ReplacementStrategy<K> {
 	@Override
 	public void remove(K key)
 	{
+		// no op yet
 	}
 
 	@Override
 	public void evict(K key)
 	{
+		// no op, we don't change stats because of evictions
 	}
 
 	@Override

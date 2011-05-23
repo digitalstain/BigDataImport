@@ -7,7 +7,7 @@ import java.util.Set;
  * bells and whistles of the JDK version. Also, more useful for persisting to
  * disk.
  */
-public interface SimpleHashMap<K, V>
+public interface SimpleMap<K, V>
 {
     /**
      * Inserts this key/value entry in the map. If the mapping for the key
@@ -56,4 +56,12 @@ public interface SimpleHashMap<K, V>
      * @return A Set of the keys with a valid mapping, empty if none
      */
     public Set<K> keySet();
+    
+    /**
+     * Return the size of the map, defined as the number of keys present, equal
+     * to the number of mappings present.
+     * 
+     * @return The size of the map
+     */
+    public int size();
 }

@@ -9,13 +9,16 @@ import java.util.Set;
 
 import org.junit.Test;
 
-public class TestArrayHashMap
+public abstract class TestArrayHashMap
 {
+	protected SimpleMap<?,?> map;
+	
+	protected abstract SimpleMap<String, Long> getMapInstance(int size);
 
     @Test
     public void testSanity()
     {
-        ArrayHashMap map = new ArrayHashMap( 16 );
+        SimpleMap<String, Long> map = getMapInstance( 16 );
         assertNull( map.get( "1" ) );
         Long first = new Long( 10 );
         assertTrue( map.put( "1", first ) );
@@ -27,7 +30,7 @@ public class TestArrayHashMap
     @Test
     public void testOverwrite()
     {
-        ArrayHashMap map = new ArrayHashMap( 4 );
+        SimpleMap<String, Long> map = getMapInstance( 4 );
         assertNull( map.get( "1" ) );
         Long first = new Long( 10 );
         Long second = new Long( 11 );
@@ -57,7 +60,7 @@ public class TestArrayHashMap
     @Test
     public void testDelete()
     {
-        ArrayHashMap map = new ArrayHashMap( 16 );
+    	SimpleMap<String, Long> map = getMapInstance( 16 );
         assertNull( map.get( "1" ) );
         Long first = new Long( 10 );
         Long second = new Long( 11 );
@@ -93,7 +96,7 @@ public class TestArrayHashMap
     @Test
     public void testIteration()
     {
-        ArrayHashMap map = new ArrayHashMap( 32 );
+    	SimpleMap<String, Long> map = getMapInstance( 32 );
 
         int size = 32;
         Object[] toInsert = new Object[size];
@@ -127,7 +130,7 @@ public class TestArrayHashMap
     @Test
     public void testResize()
     {
-        ArrayHashMap map = new ArrayHashMap( 5 );
+    	SimpleMap<String, Long> map = getMapInstance( 5 );
 
         int size = 198;
         Object[] toInsert = new Object[size];
