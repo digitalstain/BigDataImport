@@ -1,4 +1,4 @@
-package org.neo4j.imports.hash;
+package org.neo4j.imports.map;
 
 import java.util.Collection;
 import java.util.Iterator;
@@ -9,10 +9,10 @@ import java.util.Set;
  * stores stuff in two arrays, one for keys and one for values. It works with
  * linear reprobing.
  */
-public class ArrayHashMap implements SimpleMap<String, Long>
+public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
 {
-    private String[] keys;
-    private long[] values;
+    private Object[] keys;
+    private Object[] values;
     private int size;
     private boolean inResize;
 
@@ -21,10 +21,16 @@ public class ArrayHashMap implements SimpleMap<String, Long>
      * next resize, so that we know the chain doesn't end here, which
      * would be the case if we just overwrote with null.
      */
-    private static final String Tombstone = "";
+    private static final Object Tombstone = new Object()
+    {
+        @Override
+        public boolean equals(Object obj)
+        {
+            return obj == this;
+        };
+    };
 
-
-    public ArrayHashMap( int initialSize )
+    public GenericArrayHashMap( int initialSize )
     {
         /*
          * Bring up to closest power of 2, for
@@ -38,14 +44,14 @@ public class ArrayHashMap implements SimpleMap<String, Long>
         log2++;
         initialSize = 1 << log2;
 
-        keys = new String[initialSize];
-        values = new long[initialSize];
+        keys = new Object[initialSize];
+        values = new Object[initialSize];
         size = 0;
         inResize = false;
     }
 
     @Override
-    public boolean put( String key, Long value )
+    public boolean put( K key, V value )
     {
         if ( key == null )
         {
@@ -61,13 +67,13 @@ public class ArrayHashMap implements SimpleMap<String, Long>
         {
             if ( keys[offset].equals( key ) )
             {
-                if ( values[offset] == value.longValue() )
+                if ( values[offset] == value )
                 {
                     return false;
                 }
                 else
                 {
-                    values[offset] = value.longValue();
+                    values[offset] = value;
                     return true;
                 }
             }
@@ -80,13 +86,13 @@ public class ArrayHashMap implements SimpleMap<String, Long>
         }
         increaseSize();
         keys[offset] = key;
-        values[offset] = value.longValue();
+        values[offset] = value;
         checkResize( reprobes );
         return true;
     }
 
     @Override
-    public boolean putIfAbsent( String key, Long value )
+    public boolean putIfAbsent( K key, V value )
     {
         if ( key == null )
         {
@@ -112,21 +118,21 @@ public class ArrayHashMap implements SimpleMap<String, Long>
             reprobes++;
         }
         keys[offset] = key;
-        values[offset] = value.longValue();
+        values[offset] = value;
         increaseSize();
         checkResize( reprobes );
         return true;
     }
 
     @Override
-    public Long get( String key )
+    public V get( K key )
     {
         int offset = offset( key );
         while ( keys[offset] != null )
         {
             if ( keys[offset].equals( key ) )
             {
-                return values[offset];
+                return (V) values[offset];
             }
 
             offset = nextHop( offset );
@@ -140,14 +146,14 @@ public class ArrayHashMap implements SimpleMap<String, Long>
     }
 
     @Override
-    public Long remove( String key )
+    public V remove( K key )
     {
         int offset = offset( key );
         while ( keys[offset] != null )
         {
             if ( keys[offset].equals( key ) )
             {
-                Long toReturn = values[offset];
+                V toReturn = (V) values[offset];
                 keys[offset] = Tombstone;
                 size--;
                 return toReturn;
@@ -162,9 +168,9 @@ public class ArrayHashMap implements SimpleMap<String, Long>
     }
 
     @Override
-    public Set<String> keySet()
+    public Set<K> keySet()
     {
-        return new Set<String>()
+        return new Set<K>()
         {
             @Override
             public int size()
@@ -181,27 +187,34 @@ public class ArrayHashMap implements SimpleMap<String, Long>
             @Override
             public boolean contains( Object o )
             {
-                return get( (String) o ) != null;
+                return get( (K) o ) != null;
             }
 
             @Override
-            public Iterator<String> iterator()
+            public Iterator<K> iterator()
             {
-                return new Iterator<String>()
+                return new Iterator<K>()
                 {
                     private int location = 0;
+                    private int hits = 0;
 
                     @Override
                     public boolean hasNext()
                     {
-                        return location < size;
+                        return hits < size;
                     }
 
                     @Override
-                    public String next()
+                    public K next()
                     {
-                        String toReturn = keys[location];
-                        location += 1;
+                        K toReturn = (K) keys[location];
+                        while ( toReturn == null || toReturn.equals( Tombstone ) )
+                        {
+                            location++;
+                            toReturn = (K) keys[location];
+                        }
+                        hits++;
+                        location++;
                         return toReturn;
                     }
 
@@ -227,7 +240,7 @@ public class ArrayHashMap implements SimpleMap<String, Long>
             }
 
             @Override
-            public boolean add( String e )
+            public boolean add( K e )
             {
                 throw new UnsupportedOperationException("Read only data set");
             }
@@ -245,7 +258,7 @@ public class ArrayHashMap implements SimpleMap<String, Long>
             }
 
             @Override
-            public boolean addAll( Collection<? extends String> c )
+            public boolean addAll( Collection<? extends K> c )
             {
                 throw new UnsupportedOperationException("Read only data set");
             }
@@ -276,7 +289,7 @@ public class ArrayHashMap implements SimpleMap<String, Long>
         return size;
     }
 
-    private void checkResize( int reprobes )
+    protected void checkResize( int reprobes )
     {
         if ( !inResize && ( reprobes > size / 4 || size > keys.length / 4 ) )
         {
@@ -284,38 +297,38 @@ public class ArrayHashMap implements SimpleMap<String, Long>
         }
     }
 
-    private void resize()
+    protected void resize()
     {
         inResize = true;
-        String[] oldKeys = keys;
-        long[] oldValues = values;
+        Object[] oldKeys = keys;
+        Object[] oldValues = values;
 
-        keys = new String[oldKeys.length * 2];
-        values = new long[oldValues.length * 2];
+        keys = new Object[oldKeys.length * 2];
+        values = new Object[oldValues.length * 2];
 
         for ( int i = 0; i < oldKeys.length; i++ )
         {
-            String key = oldKeys[i];
+            K key = (K) oldKeys[i];
             if ( key == null || key == Tombstone )
             {
                 continue;
             }
-            put( key, oldValues[i] );
+            put( key, (V) oldValues[i] );
         }
         inResize = false;
     }
 
-    private int offset( Object key )
+    protected int offset( Object key )
     {
         return ( key.hashCode() & ( keys.length - 1 ) );
     }
 
-    private int nextHop( int current )
+    protected int nextHop( int current )
     {
         return ( current + 1 ) & ( keys.length - 1 );
     }
 
-    private void increaseSize()
+    protected void increaseSize()
     {
         if ( !inResize )
         {
@@ -323,12 +336,12 @@ public class ArrayHashMap implements SimpleMap<String, Long>
         }
     }
 
-    String[] getKeys()
+    Object[] getKeys()
     {
         return keys;
     }
 
-    long[] getValues()
+    Object[] getValues()
     {
         return values;
     }

@@ -1,24 +1,28 @@
 package org.neo4j.imports.hash;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Set;
 
 import org.junit.Test;
-import org.neo4j.imports.map.ArrayHashMap;
+import org.neo4j.imports.map.SimpleMap;
 
-public class TestArrayHashMap {
+public abstract class AbstractTestArrayHashMap
+{
+    protected SimpleMap<?,?> map;
 
+    protected abstract SimpleMap<String, Long> getMapInstance(int size);
 
     @Test
     public void testSanity()
     {
-        ArrayHashMap map = new ArrayHashMap( 16 );
+        SimpleMap<String, Long> map = getMapInstance( 16 );
         assertNull( map.get( "1" ) );
         Long first = new Long( 10 );
         assertTrue( map.put( "1", first ) );
@@ -30,7 +34,7 @@ public class TestArrayHashMap {
     @Test
     public void testOverwrite()
     {
-    	ArrayHashMap map = new ArrayHashMap( 4 );
+        SimpleMap<String, Long> map = getMapInstance( 4 );
         assertNull( map.get( "1" ) );
         Long first = new Long( 10 );
         Long second = new Long( 11 );
@@ -60,7 +64,7 @@ public class TestArrayHashMap {
     @Test
     public void testDelete()
     {
-    	ArrayHashMap map = new ArrayHashMap( 16 );
+        SimpleMap<String, Long> map = getMapInstance( 16 );
         assertNull( map.get( "1" ) );
         Long first = new Long( 10 );
         Long second = new Long( 11 );
@@ -76,7 +80,7 @@ public class TestArrayHashMap {
         assertEquals( second, map.remove( "2" ) );
         assertNull( map.remove( "2" ) );
 
-        map = new ArrayHashMap( 3 );
+        map = getMapInstance( 3 );
 
         map.put( "foo", 1L );
         map.put( "bar", 2L );
@@ -96,7 +100,7 @@ public class TestArrayHashMap {
     @Test
     public void testIteration()
     {
-    	ArrayHashMap map = new ArrayHashMap( 32 );
+        SimpleMap<String, Long> map = getMapInstance( 32 );
 
         int size = 32;
         Object[] toInsert = new Object[size];
@@ -130,7 +134,7 @@ public class TestArrayHashMap {
     @Test
     public void testResize()
     {
-    	ArrayHashMap map = new ArrayHashMap( 5 );
+        SimpleMap<String, Long> map = getMapInstance( 5 );
 
         int size = 198;
         Object[] toInsert = new Object[size];
@@ -157,26 +161,37 @@ public class TestArrayHashMap {
     @Test
     public void manyInsertsCompareWithJavaUtilHashMap()
     {
-    	ArrayHashMap map = new ArrayHashMap( 5 );
-    	HashMap<String, Long> check = new HashMap<String, Long>();
+        SimpleMap<String, Long> map = getMapInstance( 5 );
+        HashMap<String, Long> check = new HashMap<String, Long>();
 
-    	for (long i = -1000; i < 300000; i++)
-		{
-			assertTrue(map.put(Long.toHexString(i), i));
-			check.put(Long.toHexString(i), i);
-		}
+        for ( long i = -1000; i < 300000; i++ )
+        {
+            assertTrue(map.put(Long.toHexString(i), i));
+            check.put(Long.toHexString(i), i);
+        }
 
-    	assertEquals(check.size(), map.size());
-		for (String key : map.keySet())
-		{
-			assertNotNull(key);
-			assertEquals(check.get(key), map.get(key));
-		}
-		for (String key : check.keySet())
-		{
-			assertNotNull(key);
-			assertEquals(check.get(key), map.get(key));
-		}
+        assertEquals(check.size(), map.size());
+        int first = 0, second = 0;
+        for (String key : map.keySet())
+        {
+            assertNotNull(key);
+            assertEquals(check.get(key), map.get(key));
+            first++;
+        }
+
+        Set<String> unique = new HashSet<String>();
+        for ( String key : map.keySet() )
+        {
+            assertTrue( unique.add( key ) );
+        }
+
+        for (String key : check.keySet())
+        {
+            assertEquals(check.get(key), map.get(key));
+            second++;
+        }
+        assertEquals( check.size(), first );
+        assertEquals( map.size(), second );
+        assertEquals( first, second );
     }
-
 }

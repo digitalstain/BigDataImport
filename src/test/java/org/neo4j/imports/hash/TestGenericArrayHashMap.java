@@ -1,6 +1,9 @@
 package org.neo4j.imports.hash;
 
-public class TestGenericArrayHashMap extends TestArrayHashMap {
+import org.neo4j.imports.map.GenericArrayHashMap;
+import org.neo4j.imports.map.SimpleMap;
+
+public class TestGenericArrayHashMap extends AbstractTestArrayHashMap {
 
 	@Override
 	protected SimpleMap<String, Long> getMapInstance(int size) {

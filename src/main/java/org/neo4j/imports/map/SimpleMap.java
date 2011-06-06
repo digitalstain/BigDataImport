@@ -1,4 +1,4 @@
-package org.neo4j.imports.hash;
+package org.neo4j.imports.map;
 
 import java.util.Set;
 

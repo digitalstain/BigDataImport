@@ -10,6 +10,8 @@ import java.io.File;
 
 import org.junit.Test;
 import org.neo4j.imports.hash.persistence.ArrayHashMapOptionFactory;
+import org.neo4j.imports.map.ArrayHashMap;
+import org.neo4j.imports.map.ArrayHashMapOption;
 
 public class TestArrayHashMapPersistence
 {

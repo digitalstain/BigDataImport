@@ -14,7 +14,6 @@ import javax.management.NotificationListener;
 
 public class MxMemoryTracker implements MemoryTracker
 {
-
     private final List<MemoryObserver> observers;
     private Thread running;
 
@@ -36,7 +35,9 @@ public class MxMemoryTracker implements MemoryTracker
             throw new RuntimeException(
             "Could not locate a suitable memory pool" );
         }
-        heap.setUsageThreshold( (long) ( heap.getUsage().getMax() * 0.80 ) );
+        heap.setUsageThreshold( (long) ( heap.getUsage().getMax() * 0.75 ) );
+        System.out.println( "Gonna put the threshold mark at "
+                            + (long) ( heap.getUsage().getMax() * 0.75 ) );
     }
 
     @Override
@@ -74,15 +75,12 @@ public class MxMemoryTracker implements MemoryTracker
     @Override
     public void reset()
     {
-        stop();
-        launch();
     }
 
     @Override
     public void stop()
     {
         running.interrupt();
-
     }
 
     @Override

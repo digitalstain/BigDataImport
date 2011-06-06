@@ -1,4 +1,4 @@
-package org.neo4j.imports.hash;
+package org.neo4j.imports.map;
 
 import java.util.Collection;
 import java.util.Iterator;
@@ -9,10 +9,10 @@ import java.util.Set;
  * stores stuff in two arrays, one for keys and one for values. It works with
  * linear reprobing.
  */
-public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
+public class ArrayHashMap implements SimpleMap<String, Long>
 {
-    private Object[] keys;
-    private Object[] values;
+    private String[] keys;
+    private long[] values;
     private int size;
     private boolean inResize;
 
@@ -21,15 +21,10 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
      * next resize, so that we know the chain doesn't end here, which
      * would be the case if we just overwrote with null.
      */
-    private static final Object Tombstone = new Object()
-    {
-    	public boolean equals(Object obj)
-    	{
-    		return obj == this;
-    	};
-    };
+    public static final String Tombstone = "";
 
-    public GenericArrayHashMap( int initialSize )
+
+    public ArrayHashMap( int initialSize )
     {
         /*
          * Bring up to closest power of 2, for
@@ -43,14 +38,14 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
         log2++;
         initialSize = 1 << log2;
 
-        keys = new Object[initialSize];
-        values = new Object[initialSize];
+        keys = new String[initialSize];
+        values = new long[initialSize];
         size = 0;
         inResize = false;
     }
 
     @Override
-    public boolean put( K key, V value )
+    public boolean put( String key, Long value )
     {
         if ( key == null )
         {
@@ -60,24 +55,27 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
         {
             throw new IllegalArgumentException( "value was null" );
         }
-        int offset = offset( key );
+
+        int iteration = 1;
+        int hash = hash(key);
+        int offset = nextHop( hash, iteration++ );
         int reprobes = 0;
         while ( keys[offset] != null && keys[offset] != Tombstone )
         {
             if ( keys[offset].equals( key ) )
             {
-                if ( values[offset] == value )
+                if ( values[offset] == value.longValue() )
                 {
                     return false;
                 }
                 else
                 {
-                    values[offset] = value;
+                    values[offset] = value.longValue();
                     return true;
                 }
             }
-            offset = nextHop( offset );
-            if ( offset == offset( key ) )
+            offset = nextHop( hash, iteration++);
+            if ( offset == nextHop(hash, 1) )
             {
                 return false;
             }
@@ -85,13 +83,13 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
         }
         increaseSize();
         keys[offset] = key;
-        values[offset] = value;
+        values[offset] = value.longValue();
         checkResize( reprobes );
         return true;
     }
 
     @Override
-    public boolean putIfAbsent( K key, V value )
+    public boolean putIfAbsent( String key, Long value )
     {
         if ( key == null )
         {
@@ -101,7 +99,10 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
         {
             throw new IllegalArgumentException( "value was null" );
         }
-        int offset = offset( key );
+        int iteration = 1;
+        int hash = hash(key);
+
+        int offset = nextHop( hash, iteration++ );
         int reprobes = 0;
         while ( keys[offset] != null && keys[offset] != Tombstone )
         {
@@ -109,33 +110,35 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
             {
                 return false;
             }
-            offset = nextHop( offset );
-            if ( offset == offset( key ) )
+            offset = nextHop( hash, iteration++ );
+            if ( offset == nextHop(hash, 1) )
             {
                 return false;
             }
             reprobes++;
         }
         keys[offset] = key;
-        values[offset] = value;
+        values[offset] = value.longValue();
         increaseSize();
         checkResize( reprobes );
         return true;
     }
 
     @Override
-    public V get( K key )
+    public Long get( String key )
     {
-        int offset = offset( key );
+        int hash = hash(key);
+        int iteration = 1;
+        int offset = nextHop(hash, iteration++ );
         while ( keys[offset] != null )
         {
             if ( keys[offset].equals( key ) )
             {
-                return (V) values[offset];
+                return values[offset];
             }
 
-            offset = nextHop( offset );
-            if ( offset == offset( key ) )
+            offset = nextHop(hash, iteration++ );
+            if ( offset == nextHop( hash, 1 ) )
                 // We wrapped around the array
             {
                 return null;
@@ -145,20 +148,22 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
     }
 
     @Override
-    public V remove( K key )
+    public Long remove( String key )
     {
-        int offset = offset( key );
+        int iteration = 1;
+        int hash = hash(key);
+        int offset = nextHop( hash, iteration++ );
         while ( keys[offset] != null )
         {
             if ( keys[offset].equals( key ) )
             {
-                V toReturn = (V) values[offset];
+                Long toReturn = values[offset];
                 keys[offset] = Tombstone;
                 size--;
                 return toReturn;
             }
-            offset = nextHop( offset );
-            if ( offset == offset( key ) )
+            offset = nextHop( hash, iteration++ );
+            if ( offset == nextHop( hash, 1 ) )
             {
                 return null;
             }
@@ -167,9 +172,9 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
     }
 
     @Override
-    public Set<K> keySet()
+    public Set<String> keySet()
     {
-        return new Set<K>()
+        return new Set<String>()
         {
             @Override
             public int size()
@@ -186,27 +191,34 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
             @Override
             public boolean contains( Object o )
             {
-                return get( (K) o ) != null;
+                return get( (String) o ) != null;
             }
 
             @Override
-            public Iterator<K> iterator()
+            public Iterator<String> iterator()
             {
-                return new Iterator<K>()
+                return new Iterator<String>()
                 {
                     private int location = 0;
+                    private int hits = 0;
 
                     @Override
                     public boolean hasNext()
                     {
-                        return location < size * 2;
+                        return hits < size;
                     }
 
                     @Override
-                    public K next()
+                    public String next()
                     {
-                        K toReturn = (K) keys[location];
-                        location += 1;
+                        String toReturn = keys[location];
+                        while( toReturn == null || toReturn.equals(Tombstone))
+                        {
+                            location++;
+                            toReturn = keys[location];
+                        }
+                        hits++;
+                        location++;
                         return toReturn;
                     }
 
@@ -214,7 +226,6 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
                     public void remove()
                     {
                         throw new UnsupportedOperationException("Read only data set");
-
                     }
                 };
             }
@@ -232,7 +243,7 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
             }
 
             @Override
-            public boolean add( K e )
+            public boolean add( String e )
             {
                 throw new UnsupportedOperationException("Read only data set");
             }
@@ -250,7 +261,7 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
             }
 
             @Override
-            public boolean addAll( Collection<? extends K> c )
+            public boolean addAll( Collection<? extends String> c )
             {
                 throw new UnsupportedOperationException("Read only data set");
             }
@@ -276,12 +287,13 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
         };
     }
 
+    @Override
     public int size()
     {
         return size;
     }
 
-    protected void checkResize( int reprobes )
+    private void checkResize( int reprobes )
     {
         if ( !inResize && ( reprobes > size / 4 || size > keys.length / 4 ) )
         {
@@ -292,35 +304,30 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
     protected void resize()
     {
         inResize = true;
-        Object[] oldKeys = keys;
-        Object[] oldValues = values;
+        String[] oldKeys = keys;
+        long[] oldValues = values;
 
-        keys = new Object[oldKeys.length * 2];
-        values = new Object[oldValues.length * 2];
+        keys = new String[oldKeys.length * 2];
+        values = new long[oldValues.length * 2];
 
         for ( int i = 0; i < oldKeys.length; i++ )
         {
-            K key = (K) oldKeys[i];
+            String key = oldKeys[i];
             if ( key == null || key == Tombstone )
             {
                 continue;
             }
-            put( key, (V) oldValues[i] );
+            put( key, oldValues[i] );
         }
         inResize = false;
     }
 
-    protected int offset( Object key )
+    protected int nextHop( int hash, int iteration )
     {
-        return ( key.hashCode() & ( keys.length - 1 ) );
+        return ((int)( hash + 0.5*iteration + 0.5*iteration*iteration  )) & ( keys.length - 1 );
     }
 
-    protected int nextHop( int current )
-    {
-        return ( current + 1 ) & ( keys.length - 1 );
-    }
-
-    protected void increaseSize()
+    private void increaseSize()
     {
         if ( !inResize )
         {
@@ -328,13 +335,18 @@ public class GenericArrayHashMap<K, V> implements SimpleMap<K, V>
         }
     }
 
-    Object[] getKeys()
+    String[] getKeys()
     {
         return keys;
     }
 
-    Object[] getValues()
+    long[] getValues()
     {
         return values;
+    }
+
+    protected int hash(Object key)
+    {
+        return key.hashCode();
     }
 }

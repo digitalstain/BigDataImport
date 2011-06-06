@@ -2,10 +2,9 @@ package org.neo4j.imports.hash.persistence;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 
-import org.neo4j.imports.hash.ArrayHashMap;
-import org.neo4j.imports.hash.ArrayHashMapOption;
+import org.neo4j.imports.map.ArrayHashMap;
+import org.neo4j.imports.map.ArrayHashMapOption;
 
 /**
  * Given a directory, it manufactures persistable options for ArrayHashMaps.
@@ -25,11 +24,10 @@ public class ArrayHashMapOptionFactory
     }
 
     public ArrayHashMapOption wrap( ArrayHashMap toWrap, String withHash )
-            throws IOException
+    throws IOException
     {
         File store = new File( storeDir, withHash );
-        ArrayHashMapOption toReturn = new ArrayHashMapOption( toWrap,
-                new RandomAccessFile( store, "rw" ) );
+        ArrayHashMapOption toReturn = new ArrayHashMapOption( toWrap, store );
         return toReturn;
     }
 }
